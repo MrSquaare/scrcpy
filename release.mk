@@ -11,10 +11,10 @@
 .PHONY: default clean \
 	test \
 	build-server \
-	prepare-deps-win32 prepare-deps-win64 \
-	build-win32 build-win64 \
-	dist-win32 dist-win64 \
-	zip-win32 zip-win64 \
+	prepare-deps-win64 \
+	build-win64 \
+	dist-win64 \
+	zip-win64 \
 	release
 
 GRADLE ?= ./gradlew
@@ -34,15 +34,13 @@ WIN64_TARGET := $(WIN64_TARGET_DIR).zip
 
 RELEASE_DIR := release-$(VERSION)
 
-release: clean test build-server zip-win32 zip-win64
+release: clean test build-server zip-win64
 	mkdir -p "$(RELEASE_DIR)"
 	cp "$(SERVER_BUILD_DIR)/server/scrcpy-server" \
 		"$(RELEASE_DIR)/scrcpy-server-$(VERSION)"
-	cp "$(DIST)/$(WIN32_TARGET)" "$(RELEASE_DIR)"
 	cp "$(DIST)/$(WIN64_TARGET)" "$(RELEASE_DIR)"
 	cd "$(RELEASE_DIR)" && \
 		sha256sum "scrcpy-server-$(VERSION)" \
-			"scrcpy-win32-$(VERSION).zip" \
 			"scrcpy-win64-$(VERSION).zip" > SHA256SUMS.txt
 	@echo "Release generated in $(RELEASE_DIR)/"
 
