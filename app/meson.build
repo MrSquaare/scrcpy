@@ -4,6 +4,7 @@ src = [
     'src/adb/adb_device.c',
     'src/adb/adb_parser.c',
     'src/adb/adb_tunnel.c',
+    'src/audio_player.c',
     'src/cli.c',
     'src/clock.c',
     'src/compat.c',
@@ -37,6 +38,7 @@ src = [
     'src/util/net_intr.c',
     'src/util/process.c',
     'src/util/process_intr.c',
+    'src/util/rand.c',
     'src/util/strbuf.c',
     'src/util/str.c',
     'src/util/term.c',
@@ -170,6 +172,8 @@ check_functions = [
     'strdup',
     'asprintf',
     'vasprintf',
+    'nrand48',
+    'jrand48',
 ]
 
 foreach f : check_functions

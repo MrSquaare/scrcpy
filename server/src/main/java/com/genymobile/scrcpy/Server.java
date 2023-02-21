@@ -66,11 +66,13 @@ public final class Server {
 
         Thread initThread = startInitThread(options);
 
+        int uid = options.getUid();
         boolean tunnelForward = options.isTunnelForward();
         boolean control = options.getControl();
         boolean sendDummyByte = options.getSendDummyByte();
+        boolean forwardAudio = options.getForwardAudio();
 
-        try (DesktopConnection connection = DesktopConnection.open(tunnelForward, control, sendDummyByte)) {
+        try (DesktopConnection connection = DesktopConnection.open(uid, tunnelForward, control, sendDummyByte, forwardAudio)) {
             if (options.getSendDeviceMeta()) {
                 Size videoSize = device.getScreenInfo().getVideoSize();
                 connection.sendDeviceMeta(Device.getDeviceName(), videoSize.getWidth(), videoSize.getHeight());
@@ -87,12 +89,16 @@ public final class Server {
                 controllerThread = startController(controller);
                 deviceMessageSenderThread = startDeviceMessageSender(controller.getSender());
 
-                device.setClipboardListener(new Device.ClipboardListener() {
-                    @Override
-                    public void onClipboardTextChanged(String text) {
-                        controller.getSender().pushClipboardText(text);
-                    }
-                });
+                device.setClipboardListener(text -> controller.getSender().pushClipboardText(text));
+            }
+
+            // Both AudioEncoder and ScreenEncoder might require this
+            Workarounds.prepareMainLooper();
+
+            Thread audioRecordingThread = null;
+            if (forwardAudio) {
+                final AudioEncoder audioEncoder = new AudioEncoder(connection);
+                audioRecordingThread = audioEncoder.startRecording();
             }
 
             try {
@@ -106,6 +112,9 @@ public final class Server {
                 if (controllerThread != null) {
                     controllerThread.interrupt();
                 }
+                if (audioRecordingThread != null) {
+                    audioRecordingThread.interrupt();
+                }
                 if (deviceMessageSenderThread != null) {
                     deviceMessageSenderThread.interrupt();
                 }
@@ -114,26 +123,18 @@ public final class Server {
     }
 
     private static Thread startInitThread(final Options options) {
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                initAndCleanUp(options);
-            }
-        });
+        Thread thread = new Thread(() -> initAndCleanUp(options));
         thread.start();
         return thread;
     }
 
     private static Thread startController(final Controller controller) {
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    controller.control();
-                } catch (IOException e) {
-                    // this is expected on close
-                    Ln.d("Controller stopped");
-                }
+        Thread thread = new Thread(() -> {
+            try {
+                controller.control();
+            } catch (IOException e) {
+                // this is expected on close
+                Ln.d("Controller stopped");
             }
         });
         thread.start();
@@ -141,15 +142,12 @@ public final class Server {
     }
 
     private static Thread startDeviceMessageSender(final DeviceMessageSender sender) {
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    sender.loop();
-                } catch (IOException | InterruptedException e) {
-                    // this is expected on close
-                    Ln.d("Device message sender stopped");
-                }
+        Thread thread = new Thread(() -> {
+            try {
+                sender.loop();
+            } catch (IOException | InterruptedException e) {
+                // this is expected on close
+                Ln.d("Device message sender stopped");
             }
         });
         thread.start();
@@ -178,6 +176,13 @@ public final class Server {
             String key = arg.substring(0, equalIndex);
             String value = arg.substring(equalIndex + 1);
             switch (key) {
+                case "uid":
+                    int uid = Integer.parseInt(value, 0x10);
+                    if (uid < -1) {
+                        throw new IllegalArgumentException("uid may not be negative (except -1 for 'none'): " + uid);
+                    }
+                    options.setUid(uid);
+                    break;
                 case "log_level":
                     Ln.Level level = Ln.Level.valueOf(value.toUpperCase(Locale.ENGLISH));
                     options.setLogLevel(level);
@@ -251,6 +256,10 @@ public final class Server {
                     boolean powerOn = Boolean.parseBoolean(value);
                     options.setPowerOn(powerOn);
                     break;
+                case "forward_audio":
+                    boolean forwardAudio = Boolean.parseBoolean(value);
+                    options.setForwardAudio(forwardAudio);
+                    break;
                 case "send_device_meta":
                     boolean sendDeviceMeta = Boolean.parseBoolean(value);
                     options.setSendDeviceMeta(sendDeviceMeta);
@@ -319,12 +328,9 @@ public final class Server {
     }
 
     public static void main(String... args) throws Exception {
-        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-            @Override
-            public void uncaughtException(Thread t, Throwable e) {
-                Ln.e("Exception on thread " + t, e);
-                suggestFix(e);
-            }
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            Ln.e("Exception on thread " + t, e);
+            suggestFix(e);
         });
 
         Options options = createOptions(args);

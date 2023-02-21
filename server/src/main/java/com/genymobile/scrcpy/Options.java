@@ -6,6 +6,7 @@ import java.util.List;
 
 public class Options {
     private Ln.Level logLevel = Ln.Level.DEBUG;
+    private int uid = -1; // 31-bit non-negative value, or -1
     private int maxSize;
     private int bitRate = 8000000;
     private int maxFps;
@@ -23,6 +24,7 @@ public class Options {
     private boolean downsizeOnError = true;
     private boolean cleanup = true;
     private boolean powerOn = true;
+    private boolean forwardAudio = true;
 
     // Options not used by the scrcpy client, but useful to use scrcpy-server directly
     private boolean sendDeviceMeta = true; // send device name and size
@@ -35,6 +37,14 @@ public class Options {
 
     public void setLogLevel(Ln.Level logLevel) {
         this.logLevel = logLevel;
+    }
+
+    public int getUid() {
+        return uid;
+    }
+
+    public void setUid(int uid) {
+        this.uid = uid;
     }
 
     public int getMaxSize() {
@@ -171,6 +181,14 @@ public class Options {
 
     public void setPowerOn(boolean powerOn) {
         this.powerOn = powerOn;
+    }
+
+    public boolean getForwardAudio() {
+        return forwardAudio;
+    }
+
+    public void setForwardAudio(boolean forwardAudio) {
+        this.forwardAudio = forwardAudio;
     }
 
     public boolean getSendDeviceMeta() {
