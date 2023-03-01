@@ -1,4 +1,4 @@
-FROM debian:11
+FROM debian:bookworm-slim
 
 # Update dependencies
 RUN apt-get update
@@ -6,7 +6,7 @@ RUN apt-get update
 # Install build dependencies
 RUN apt-get install build-essential git pkg-config meson ninja-build libsdl2-dev \
   libavcodec-dev libavdevice-dev libavformat-dev libavutil-dev \
-  libusb-1.0-0-dev openjdk-11-jdk -y
+  libusb-1.0-0-dev openjdk-17-jdk -y
 
 # Install Windows-specific build dependencies
 RUN apt-get install mingw-w64 mingw-w64-tools zip p7zip-full -y
